@@ -33,14 +33,25 @@ detect_primary_volume() {
 }
 
 resolve_qpkg_path() {
-    QPKG_DIR="${PRIMARY_VOLUME}/.qpkg"
-    [ -L "$QPKG_DIR" ] && QPKG_DIR=$(readlink -f "$QPKG_DIR") || err_log "Failed to resolve .qpkg symlink."
-    QPKG_PATH="${QPKG_DIR}/${PACKAGE_NAME}"
+    # Try to read Install_Path directly from qpkg.conf first if already registered
+    QPKG_PATH=$(/sbin/getcfg "$PACKAGE_NAME" Install_Path -f /etc/config/qpkg.conf)
+    if [ -z "$QPKG_PATH" ] || [ ! -d "$QPKG_PATH" ]; then
+        # Fallback to reconstructing the path from primary volume
+        detect_primary_volume
+        QPKG_DIR="${PRIMARY_VOLUME}/.qpkg"
+        if [ -L "$QPKG_DIR" ]; then
+            QPKG_DIR=$(readlink -f "$QPKG_DIR")
+        fi
+        QPKG_PATH="${QPKG_DIR}/${PACKAGE_NAME}"
+    fi
     CONFIG_DIR="${QPKG_PATH}/config"
 }
 
 verify_container_station() {
-    [ ! -d "${PRIMARY_VOLUME}/.qpkg/container-station" ] && err_log "Container Station not installed."
+    CONTAINER_STATION_DIR=$(/sbin/getcfg container-station Install_Path -f /etc/config/qpkg.conf)
+    if [ -z "$CONTAINER_STATION_DIR" ] || [ ! -d "$CONTAINER_STATION_DIR" ]; then
+        err_log "Container Station not installed."
+    fi
 }
 
 prepare_directories() {
@@ -50,14 +61,27 @@ prepare_directories() {
 
 detect_docker_binary() {
     CONTAINER_STATION_DIR=$(/sbin/getcfg container-station Install_Path -f /etc/config/qpkg.conf)
-    DOCKER_PATH="${CONTAINER_STATION_DIR}/bin/docker"
-    [ -z "$DOCKER_PATH" ] || [ ! -x "$DOCKER_PATH" ] && err_log "Docker binary not found or not executable."
+    if [ -n "$CONTAINER_STATION_DIR" ] && [ -x "${CONTAINER_STATION_DIR}/bin/docker" ]; then
+        DOCKER_PATH="${CONTAINER_STATION_DIR}/bin/docker"
+    elif which docker >/dev/null 2>&1; then
+        DOCKER_PATH=$(which docker)
+    else
+        err_log "Docker binary not found or not executable."
+    fi
     export PATH="$(dirname "$DOCKER_PATH"):$PATH"
 }
 
 detect_docker_compose() {
     detect_docker_binary
-    ! "$DOCKER_PATH" compose version >/dev/null 2>&1 && err_log "docker compose not found. Install Docker Compose plugin."
+    if "$DOCKER_PATH" compose version >/dev/null 2>&1; then
+        DOCKER_COMPOSE_CMD="$DOCKER_PATH compose"
+    elif [ -x "${CONTAINER_STATION_DIR}/bin/docker-compose" ]; then
+        DOCKER_COMPOSE_CMD="${CONTAINER_STATION_DIR}/bin/docker-compose"
+    elif which docker-compose >/dev/null 2>&1; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+    else
+        err_log "docker compose not found. Install Docker Compose plugin."
+    fi
 }
 
 create_all_mounts_file() {
@@ -111,7 +135,7 @@ create_container() {
     log "Creating ${PACKAGE_NAME} container..."
     create_docker_compose_file
     DC_FILE="${QPKG_PATH}/docker-compose.yml"
-    "$DOCKER_PATH" compose -f "$DC_FILE" up -d || err_log "Failed to start ${PACKAGE_NAME} container."
+    $DOCKER_COMPOSE_CMD -f "$DC_FILE" up -d || err_log "Failed to start ${PACKAGE_NAME} container."
     log "${PACKAGE_NAME} container started successfully."
 }
 
@@ -145,8 +169,8 @@ pkg_start() {
     resolve_qpkg_path
     detect_docker_compose
     DC_FILE="${QPKG_PATH}/docker-compose.yml"
-    "$DOCKER_PATH" compose -f "$DC_FILE" up -d
-    RUNNING_SERVICE=$("$DOCKER_PATH" compose -f "$DC_FILE" ps --services --filter "status=running" | grep -w "${PACKAGE_NAME}")
+    $DOCKER_COMPOSE_CMD -f "$DC_FILE" up -d
+    RUNNING_SERVICE=$($DOCKER_COMPOSE_CMD -f "$DC_FILE" ps --services --filter "status=running" | grep -w "${PACKAGE_NAME}")
     [ -n "$RUNNING_SERVICE" ] && log "Container started." || err_log "Failed to start container."
 }
 
@@ -156,8 +180,8 @@ pkg_stop() {
     detect_primary_volume
     resolve_qpkg_path
     DC_FILE="${QPKG_PATH}/docker-compose.yml"
-    "$DOCKER_PATH" compose -f "$DC_FILE" stop
-    RUNNING_SERVICE=$("$DOCKER_PATH" compose -f "$DC_FILE" ps --services --filter "status=running" | grep -w "${PACKAGE_NAME}")
+    $DOCKER_COMPOSE_CMD -f "$DC_FILE" stop
+    RUNNING_SERVICE=$($DOCKER_COMPOSE_CMD -f "$DC_FILE" ps --services --filter "status=running" | grep -w "${PACKAGE_NAME}")
     [ -z "$RUNNING_SERVICE" ] && log "Container stopped." || err_log "Stop failed."
 }
 
@@ -165,13 +189,28 @@ PKG_PRE_REMOVE="{
     PACKAGE_NAME=\"\${PACKAGE_NAME:-jellyfin}\"
     /sbin/log_tool -t0 -uSystem -p127.0.0.1 -mlocalhost -a '[INFO] PKG_PRE_REMOVE: Starting...'
     CONTAINER_STATION_DIR=\$(/sbin/getcfg container-station Install_Path -f /etc/config/qpkg.conf)
-    DOCKER_PATH=\"\${CONTAINER_STATION_DIR}/bin/docker\"
-    PRIMARY_VOLUME=\$(getcfg SHARE_DEF defVolMP -d '' -f /etc/config/def_share.info)
-    QPKG_DIR=\"\${PRIMARY_VOLUME}/.qpkg/\${PACKAGE_NAME}\"
+    if [ -n \"\$CONTAINER_STATION_DIR\" ] && [ -x \"\${CONTAINER_STATION_DIR}/bin/docker\" ]; then
+        DOCKER_PATH=\"\${CONTAINER_STATION_DIR}/bin/docker\"
+        DOCKER_COMPOSE_CMD=\"\${DOCKER_PATH} compose\"
+    else
+        DOCKER_PATH=\$(which docker)
+        if [ -n \"\$DOCKER_PATH\" ] && \"\$DOCKER_PATH\" compose version >/dev/null 2>&1; then
+            DOCKER_COMPOSE_CMD=\"\${DOCKER_PATH} compose\"
+        elif which docker-compose >/dev/null 2>&1; then
+            DOCKER_COMPOSE_CMD=\"docker-compose\"
+        else
+            DOCKER_COMPOSE_CMD=\"docker compose\"
+        fi
+    fi
+    QPKG_DIR=\$(/sbin/getcfg \"\$PACKAGE_NAME\" Install_Path -f /etc/config/qpkg.conf)
+    if [ -z \"\$QPKG_DIR\" ] || [ ! -d \"\$QPKG_DIR\" ]; then
+        PRIMARY_VOLUME=\$(getcfg SHARE_DEF defVolMP -d '' -f /etc/config/def_share.info)
+        QPKG_DIR=\"\${PRIMARY_VOLUME}/.qpkg/\${PACKAGE_NAME}\"
+    fi
     DC_FILE=\"\${QPKG_DIR}/docker-compose.yml\"
     cd \"\$QPKG_DIR\" || exit 1
     /sbin/log_tool -t0 -uSystem -p127.0.0.1 -mlocalhost -a '[INFO] Stopping container...'
-    OUTPUT=\$(\"\$DOCKER_PATH\" compose -f \"\$DC_FILE\" down 2>&1)
+    OUTPUT=\$(\$DOCKER_COMPOSE_CMD -f \"\$DC_FILE\" down 2>&1)
     /sbin/log_tool -t0 -uSystem -p127.0.0.1 -mlocalhost -a \"[INFO] docker compose down: \$OUTPUT\"
 }"
 

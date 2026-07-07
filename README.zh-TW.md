@@ -14,6 +14,7 @@
 * **動態偵測 Container Station 安裝路徑**（從 `/etc/config/qpkg.conf` 自動讀取，不受安裝硬碟磁碟區不同影響）。
 * **更具彈性的 Docker 與 Compose 執行檔偵測**（同時支援新版 `docker compose` 指令與舊版獨立 `docker-compose` 執行檔，並支援環境變數 PATH 尋找）。
 * **預設將 Jellyfin 的 Docker Image 更新為 `latest`** 標籤（原作者版本停留在舊版的 `10.8.10`）。
+* **自動 Intel GPU (/dev/dri) 直通 (Passthrough)**：若系統偵測到 QNAP 主機具備 Intel 內建顯示卡，本套件會自動將 `/dev/dri` 直通對應至容器內，讓您能直接使用硬體加速解碼（QSV / VA-API）。
 
 ---
 ## 安裝需求
@@ -60,6 +61,19 @@
 1. 登入 Jellyfin 網頁管理介面。
 2. 前往 **新增媒體庫** (Add Library)。
 3. 在選擇資料夾時，從 **`/mnt`** 底下找到對應的 QNAP 共享資料夾即可。
+
+---
+
+## GPU 硬體加速轉碼設定 (Intel QSV / VA-API)
+
+如果您的 QNAP NAS 使用 Intel CPU 且具備內建顯示晶片 (例如 TS-464)，本套件在安裝時會自動偵測並將顯卡裝置路徑 `/dev/dri` 掛載至 Jellyfin 容器中。要啟用硬體加速轉碼：
+
+1. 登入 Jellyfin 網頁管理介面。
+2. 前往 **控制台 (Dashboard)** > **播放 (Playback)** > **轉碼 (Transcoding)**。
+3. 將 **硬體加速 (Hardware acceleration)** 設定為 **Intel QuickSync (QSV)** 或 **Intel VA-API**。
+
+> [!NOTE]
+> 在某些 QNAP 韌體版本中，系統預設會將 `/dev/dri` 裝置權限限制給 `admin` 群組。若您在轉碼播放時遇到錯誤，可能需要透過 SSH 連線至 NAS 並執行 `chmod -R 777 /dev/dri` 指令，以放開權限給容器內的一般使用者存取。
 
 ---
 

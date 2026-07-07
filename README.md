@@ -12,6 +12,7 @@ This repository is a fork of [kajain99/Jellyfin-QPKG](https://github.com/kajain9
 * **Volume-agnostic Container Station path detection** (reads path dynamically from `/etc/config/qpkg.conf`).
 * **Robust Docker and Compose command lookup** (supporting both modern CLI `docker compose` and standalone `docker-compose`).
 * **Jellyfin Docker image configured to `latest`** instead of the legacy `10.8.10`.
+* **Automatic Intel GPU (/dev/dri) Passthrough**: If an Intel integrated GPU is detected on the QNAP host, the QPKG automatically passes `/dev/dri` to the container to enable hardware transcoding (QSV / VA-API) out-of-the-box.
 
 ---
 ## What It Needs
@@ -62,6 +63,19 @@ Once Jellyfin is set up, you can easily add your media libraries:
 1. Go to the Jellyfin web interface.
 2. Navigate to **Add Library**.
 3. Select the appropriate folders under **`/mnt`**, where all your QNAP shares are mounted.
+
+---
+
+## GPU Hardware Transcoding (Intel QSV / VA-API)
+
+If your QNAP NAS has an Intel CPU with integrated graphics (e.g. TS-464), this QPKG automatically detects it and passes `/dev/dri` to the container. To use hardware acceleration:
+
+1. Log in to the Jellyfin web interface.
+2. Go to **Dashboard** > **Playback** > **Transcoding**.
+3. Set **Hardware acceleration** to **Intel QuickSync (QSV)** or **Intel VA-API**.
+
+> [!NOTE]
+> On some QNAP firmware versions, `/dev/dri` device permissions are restricted to the `admin` group. If hardware transcoding fails (e.g. playback errors when transcoding), you may need to run `chmod -R 777 /dev/dri` via SSH to make the device accessible to the container user.
 
 ---
 

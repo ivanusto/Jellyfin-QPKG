@@ -1,8 +1,17 @@
 # Jellyfin QPKG for QNAP
 
+[繁體中文說明 (Traditional Chinese)](README.zh-TW.md)
+
 ## What It Is
 
-This is a QPKG package designed to simplify the installation of Jellyfin on QNAP NAS devices. It uses QNAP's Container Station and the official Jellyfin Docker image ([jellyfin/jellyfin](https://hub.docker.com/r/jellyfin/jellyfin)) with the **10.8.10** tag.  Jellyfin is an open-source media server solution that helps you manage and stream your media content seamlessly across devices.This QPKG is built using QNAP's **QDK Kit**, ensuring compatibility with QNAP systems while leveraging the power of Jellyfin's Docker image.
+This is a QPKG package designed to simplify the installation of Jellyfin on QNAP NAS devices. It uses QNAP's Container Station and the official Jellyfin Docker image ([jellyfin/jellyfin](https://hub.docker.com/r/jellyfin/jellyfin)) with the **latest** tag. Jellyfin is an open-source media server solution that helps you manage and stream your media content seamlessly across devices. This QPKG is built using QNAP's **QDK Kit**, ensuring compatibility with QNAP systems while leveraging the power of Jellyfin's Docker image.
+
+### About this Fork
+This repository is a fork of [kajain99/Jellyfin-QPKG](https://github.com/kajain99/Jellyfin-QPKG). Since the original repository is no longer updated and its installation script fails on newer QNAP firmware (such as QuTS Hero 6.0 and QTS 6.0) due to hardcoded Container Station paths and shell symlink resolution bugs, this fork optimizes the routines to provide:
+* **Full compatibility with QuTS Hero 6.0 and QTS 6.0 / 5.x**.
+* **Volume-agnostic Container Station path detection** (reads path dynamically from `/etc/config/qpkg.conf`).
+* **Robust Docker and Compose command lookup** (supporting both modern CLI `docker compose` and standalone `docker-compose`).
+* **Jellyfin Docker image configured to `latest`** instead of the legacy `10.8.10`.
 
 ---
 ## What It Needs
@@ -26,7 +35,7 @@ Since this QPKG is unsigned, you need to allow the installation of unsigned appl
 
 ### Step 2: Install the QPKG
 
-1. Download the Jellyfin QPKG from [this repository's Releases section](https://github.com/kajain99/Jellyfin-qpkg/releases).
+1. Download the Jellyfin QPKG from [this repository's Releases section](https://github.com/ivanusto/Jellyfin-QPKG/releases).
 2. In the App Center, click **Install Manually**.
 3. Select the downloaded QPKG file and follow the on-screen instructions.
    ![allow unsigned applications](https://www.thestorageguy.net/content/images/2025/01/image.png)
@@ -58,7 +67,8 @@ Once Jellyfin is set up, you can easily add your media libraries:
 
 ## Credits
 
-- Built with QNAP's QDK Kit.
+- Forked and updated by [ivanusto](https://github.com/ivanusto).
+- Original version built by [kajain99](https://github.com/kajain99) using QNAP's QDK Kit.
 - Powered by the official Jellyfin Docker image: [jellyfin/jellyfin](https://hub.docker.com/r/jellyfin/jellyfin).
 
 ---

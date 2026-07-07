@@ -15,6 +15,7 @@
 * **更具彈性的 Docker 與 Compose 執行檔偵測**（同時支援新版 `docker compose` 指令與舊版獨立 `docker-compose` 執行檔，並支援環境變數 PATH 尋找）。
 * **預設將 Jellyfin 的 Docker Image 更新為 `latest`** 標籤（原作者版本停留在舊版的 `10.8.10`）。
 * **自動 Intel GPU (/dev/dri) 直通 (Passthrough)**：若系統偵測到 QNAP 主機具備 Intel 內建顯示卡，本套件會自動將 `/dev/dri` 直通對應至容器內，讓您能直接使用硬體加速解碼（QSV / VA-API）。
+* **自動 NVIDIA GPU 直通 (Passthrough)**：若系統偵測到安裝了 NVIDIA 顯示卡且 `NVIDIA_GPU_DRV` 驅動套件為啟用狀態，本套件會自動將 `/dev/nvidia*` 裝置節點與驅動程式函式庫掛載至容器內，讓您能使用 NVIDIA NVENC/NVDEC 硬體加速。
 
 ---
 ## 安裝需求
@@ -64,7 +65,9 @@
 
 ---
 
-## GPU 硬體加速轉碼設定 (Intel QSV / VA-API)
+## GPU 硬體加速轉碼設定 (Intel / NVIDIA)
+
+### Intel 內顯 (QSV / VA-API)
 
 如果您的 QNAP NAS 使用 Intel CPU 且具備內建顯示晶片 (例如 TS-464)，本套件在安裝時會自動偵測並將顯卡裝置路徑 `/dev/dri` 掛載至 Jellyfin 容器中。要啟用硬體加速轉碼：
 
@@ -74,6 +77,16 @@
 
 > [!NOTE]
 > 在某些 QNAP 韌體版本中，系統預設會將 `/dev/dri` 裝置權限限制給 `admin` 群組。若您在轉碼播放時遇到錯誤，可能需要透過 SSH 連線至 NAS 並執行 `chmod -R 777 /dev/dri` 指令，以放開權限給容器內的一般使用者存取。
+
+### NVIDIA 獨顯 (NVENC / NVDEC)
+
+如果您的 QNAP NAS 安裝了 NVIDIA 獨立顯示卡：
+
+1. 請先確保已在 QNAP App Center 中安裝並啟用 **NVIDIA GPU Driver** 驅動套件。
+2. 前往 QNAP **控制台** > **系統** > **硬體** > **顯示卡**，將顯示卡資源分配給 **Container Station (Container 主機)** 並套用。
+3. 本套件在安裝/啟動時會自動偵測，並將 NVIDIA 裝置節點 (`/dev/nvidia*`) 以及主機上的顯示卡驅動程式目錄掛載至容器內。
+4. 登入 Jellyfin 網頁管理介面，前往 **控制台 (Dashboard)** > **播放 (Playback)** > **轉碼 (Transcoding)**。
+5. 將 **硬體加速 (Hardware acceleration)** 設定為 **Nvidia NVENC**。
 
 ---
 

@@ -13,6 +13,7 @@ This repository is a fork of [kajain99/Jellyfin-QPKG](https://github.com/kajain9
 * **Robust Docker and Compose command lookup** (supporting both modern CLI `docker compose` and standalone `docker-compose`).
 * **Jellyfin Docker image configured to `latest`** instead of the legacy `10.8.10`.
 * **Automatic Intel GPU (/dev/dri) Passthrough**: If an Intel integrated GPU is detected on the QNAP host, the QPKG automatically passes `/dev/dri` to the container to enable hardware transcoding (QSV / VA-API) out-of-the-box.
+* **Automatic NVIDIA GPU Passthrough**: If an NVIDIA GPU is installed and the `NVIDIA_GPU_DRV` driver package is active on the QNAP host, the QPKG automatically maps `/dev/nvidia*` nodes and the driver library path inside the container, enabling NVIDIA NVENC/NVDEC hardware transcoding.
 
 ---
 ## What It Needs
@@ -66,7 +67,9 @@ Once Jellyfin is set up, you can easily add your media libraries:
 
 ---
 
-## GPU Hardware Transcoding (Intel QSV / VA-API)
+## GPU Hardware Transcoding (Intel / NVIDIA)
+
+### Intel iGPU (QSV / VA-API)
 
 If your QNAP NAS has an Intel CPU with integrated graphics (e.g. TS-464), this QPKG automatically detects it and passes `/dev/dri` to the container. To use hardware acceleration:
 
@@ -76,6 +79,16 @@ If your QNAP NAS has an Intel CPU with integrated graphics (e.g. TS-464), this Q
 
 > [!NOTE]
 > On some QNAP firmware versions, `/dev/dri` device permissions are restricted to the `admin` group. If hardware transcoding fails (e.g. playback errors when transcoding), you may need to run `chmod -R 777 /dev/dri` via SSH to make the device accessible to the container user.
+
+### NVIDIA dGPU (NVENC / NVDEC)
+
+If your QNAP NAS has an NVIDIA graphics card installed:
+
+1. Ensure the **NVIDIA GPU Driver** QPKG is installed and active via the QNAP App Center.
+2. In the QNAP Control Panel, go to **System** > **Hardware** > **Graphics Card**, and assign the GPU resource to **Container Station**.
+3. The QPKG will automatically detect the GPU and map the driver libraries and device nodes (`/dev/nvidia*`) inside the container.
+4. In the Jellyfin web interface, go to **Dashboard** > **Playback** > **Transcoding**.
+5. Set **Hardware acceleration** to **Nvidia NVENC**.
 
 ---
 

@@ -128,12 +128,33 @@ EOF
         [[ $LINE == -v* ]] && echo "      - \"$(echo "$LINE" | sed 's/^-v //')\"" >> "$COMPOSE_FILE"
     done < "$MOUNT_FILE"
 
-    # Automatically check and pass through Intel iGPU (/dev/dri) for hardware transcoding if present
+    # Prepare devices block dynamically to avoid duplicate yaml keys
+    DEVICES_ENTRIES=""
     if [ -d "/dev/dri" ] || [ -c "/dev/dri/renderD128" ]; then
-        log "Intel GPU detected on host. Enabling /dev/dri device passthrough in docker-compose.yml."
+        log "Intel GPU detected on host. Preparing Intel GPU devices mapping."
+        DEVICES_ENTRIES="${DEVICES_ENTRIES}      - \"/dev/dri:/dev/dri\"\n"
+    fi
+
+    NVIDIA_DRV_PATH=$(/sbin/getcfg NVIDIA_GPU_DRV Install_Path -f /etc/config/qpkg.conf)
+    if [ -c "/dev/nvidia0" ] && [ -n "$NVIDIA_DRV_PATH" ] && [ -d "$NVIDIA_DRV_PATH" ]; then
+        log "NVIDIA GPU and drivers detected on host. Preparing NVIDIA GPU devices mapping."
+        DEVICES_ENTRIES="${DEVICES_ENTRIES}      - \"/dev/nvidia0:/dev/nvidia0\"\n      - \"/dev/nvidiactl:/dev/nvidiactl\"\n      - \"/dev/nvidia-uvm:/dev/nvidia-uvm\"\n"
+        # Mount NVIDIA driver to volumes
+        echo "      - \"${NVIDIA_DRV_PATH}/usr:/usr/local/nvidia:ro\"" >> "$COMPOSE_FILE"
+    fi
+
+    if [ -n "$DEVICES_ENTRIES" ]; then
+        echo "    devices:" >> "$COMPOSE_FILE"
+        printf "%b" "$DEVICES_ENTRIES" >> "$COMPOSE_FILE"
+    fi
+
+    # Append NVIDIA environment variables if NVIDIA was detected
+    if [ -c "/dev/nvidia0" ] && [ -n "$NVIDIA_DRV_PATH" ] && [ -d "$NVIDIA_DRV_PATH" ]; then
         cat >> "$COMPOSE_FILE" <<EOF
-    devices:
-      - "/dev/dri:/dev/dri"
+    environment:
+      - "LD_LIBRARY_PATH=/usr/local/nvidia/lib64"
+      - "NVIDIA_VISIBLE_DEVICES=all"
+      - "NVIDIA_DRIVER_CAPABILITIES=all"
 EOF
     fi
 

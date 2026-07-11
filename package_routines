@@ -60,13 +60,41 @@ prepare_directories() {
 }
 
 detect_docker_binary() {
-    CONTAINER_STATION_DIR=$(/sbin/getcfg container-station Install_Path -f /etc/config/qpkg.conf)
-    if [ -n "$CONTAINER_STATION_DIR" ] && [ -x "${CONTAINER_STATION_DIR}/bin/docker" ]; then
-        DOCKER_PATH="${CONTAINER_STATION_DIR}/bin/docker"
-    elif which docker >/dev/null 2>&1; then
-        DOCKER_PATH=$(which docker)
-    else
-        err_log "Docker binary not found or not executable."
+    local max_wait=120
+    local elapsed=0
+    DOCKER_PATH=""
+
+    # If action is stop, check quickly without waiting/looping
+    if [ "$ACTION" = "stop" ]; then
+        max_wait=0
+    fi
+
+    while :; do
+        CONTAINER_STATION_DIR=$(/sbin/getcfg container-station Install_Path -f /etc/config/qpkg.conf)
+        if [ -n "$CONTAINER_STATION_DIR" ] && [ -x "${CONTAINER_STATION_DIR}/bin/docker" ]; then
+            DOCKER_PATH="${CONTAINER_STATION_DIR}/bin/docker"
+            break
+        elif which docker >/dev/null 2>&1; then
+            DOCKER_PATH=$(which docker)
+            break
+        fi
+
+        if [ $elapsed -ge $max_wait ]; then
+            break
+        fi
+
+        log "Waiting for Docker binary to be available... (${elapsed}/${max_wait}s)"
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+
+    if [ -z "$DOCKER_PATH" ]; then
+        if [ "$ACTION" = "stop" ]; then
+            log "Docker binary not found or not executable during stop. Assuming already stopped."
+            exit 0
+        else
+            err_log "Docker binary not found or not executable after ${max_wait}s."
+        fi
     fi
     export PATH="$(dirname "$DOCKER_PATH"):$PATH"
 }
@@ -75,13 +103,33 @@ detect_docker_compose() {
     detect_docker_binary
     if "$DOCKER_PATH" compose version >/dev/null 2>&1; then
         DOCKER_COMPOSE_CMD="$DOCKER_PATH compose"
-    elif [ -x "${CONTAINER_STATION_DIR}/bin/docker-compose" ]; then
+    elif [ -n "$CONTAINER_STATION_DIR" ] && [ -x "${CONTAINER_STATION_DIR}/bin/docker-compose" ]; then
         DOCKER_COMPOSE_CMD="${CONTAINER_STATION_DIR}/bin/docker-compose"
     elif which docker-compose >/dev/null 2>&1; then
         DOCKER_COMPOSE_CMD="docker-compose"
     else
-        err_log "docker compose not found. Install Docker Compose plugin."
+        if [ "$ACTION" = "stop" ]; then
+            log "docker compose not found during stop. Assuming already stopped."
+            exit 0
+        else
+            err_log "docker compose not found. Install Docker Compose plugin."
+        fi
     fi
+}
+
+wait_for_docker_daemon() {
+    local max_wait=120
+    local elapsed=0
+    log "Waiting for Docker daemon to respond..."
+    while [ $elapsed -lt $max_wait ]; do
+        if "$DOCKER_PATH" version >/dev/null 2>&1; then
+            log "Docker daemon is responsive."
+            return 0
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+    err_log "Docker daemon did not respond after ${max_wait}s."
 }
 
 create_all_mounts_file() {
@@ -94,6 +142,10 @@ create_all_mounts_file() {
     mkdir -p "$CONFIG_DIR" || err_log "Failed to create config dir: $CONFIG_DIR"
     > "$ALL_MOUNTS_FILE"
     grep "^\[" "$SMB_CONF" | sed 's/\[\(.*\)\]/\1/' | while read -r SHARE_NAME; do
+        # Exclude special sections in smb.conf
+        [ "$SHARE_NAME" = "global" ] && continue
+        [ "$SHARE_NAME" = "printers" ] && continue
+        [ "$SHARE_NAME" = "homes" ] && continue
         SHARE_PATH=$(/sbin/getcfg "$SHARE_NAME" path -f "$SMB_CONF")
         if [ -n "$SHARE_PATH" ] && [ -d "$SHARE_PATH" ]; then
             if [ -w "$SHARE_PATH" ]; then
@@ -175,6 +227,7 @@ pkg_install() {
     resolve_qpkg_path
     verify_container_station
     detect_docker_compose
+    wait_for_docker_daemon
     prepare_directories
     local PACKAGE_ROUTINES_SRC="$(dirname "$0")/package_routines"
     [ ! -f "$PACKAGE_ROUTINES_SRC" ] && err_log "Missing package_routines at $(dirname "$0")"
@@ -198,6 +251,7 @@ pkg_start() {
     detect_primary_volume
     resolve_qpkg_path
     detect_docker_compose
+    wait_for_docker_daemon
     DC_FILE="${QPKG_PATH}/docker-compose.yml"
     $DOCKER_COMPOSE_CMD -f "$DC_FILE" up -d
     RUNNING_SERVICE=$($DOCKER_COMPOSE_CMD -f "$DC_FILE" ps --services --filter "status=running" | grep -w "${PACKAGE_NAME}")
@@ -210,6 +264,13 @@ pkg_stop() {
     detect_primary_volume
     resolve_qpkg_path
     DC_FILE="${QPKG_PATH}/docker-compose.yml"
+
+    # If the docker daemon is not responsive during stop, don't hang/error.
+    if ! "$DOCKER_PATH" version >/dev/null 2>&1; then
+        log "Docker daemon not running or not responsive during stop. Assuming already stopped."
+        exit 0
+    fi
+
     $DOCKER_COMPOSE_CMD -f "$DC_FILE" stop
     RUNNING_SERVICE=$($DOCKER_COMPOSE_CMD -f "$DC_FILE" ps --services --filter "status=running" | grep -w "${PACKAGE_NAME}")
     [ -z "$RUNNING_SERVICE" ] && log "Container stopped." || err_log "Stop failed."
@@ -249,10 +310,12 @@ if [ -z "$1" ]; then
     set -- no_op
 fi
 
-case "$1" in
+ACTION="$1"
+
+case "$ACTION" in
     install) pkg_install ;;
     start) pkg_start ;;
     stop) pkg_stop ;;
     no_op) no_op ;;
-    *) err_log "Invalid action: $1. Use install, start, stop, or no_op." ;;
+    *) err_log "Invalid action: $ACTION. Use install, start, stop, or no_op." ;;
 esac

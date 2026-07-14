@@ -16,6 +16,7 @@
 * **預設將 Jellyfin 的 Docker Image 更新為 `latest`** 標籤（原作者版本停留在舊版的 `10.8.10`）。
 * **自動 Intel GPU (/dev/dri) 直通 (Passthrough)**：若系統偵測到 QNAP 主機具備 Intel 內建顯示卡，本套件會自動將 `/dev/dri` 直通對應至容器內，讓您能直接使用硬體加速解碼（QSV / VA-API）。
 * **自動 NVIDIA GPU 直通 (Passthrough)**：若系統偵測到安裝了 NVIDIA 顯示卡且 `NVIDIA_GPU_DRV` 驅動套件為啟用狀態，本套件會自動將 `/dev/nvidia*` 裝置節點與驅動程式函式庫掛載至容器內，讓您能使用 NVIDIA NVENC/NVDEC 硬體加速。
+* **已驗證機型**：本套件已在 **TS-464**、**TS-855X**、**TS-673A**、**TS-h1277AFX** 等機型上實測安裝並可正常運作。
 
 ---
 ## 安裝需求

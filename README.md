@@ -14,6 +14,7 @@ This repository is a fork of [kajain99/Jellyfin-QPKG](https://github.com/kajain9
 * **Jellyfin Docker image configured to `latest`** instead of the legacy `10.8.10`.
 * **Automatic Intel GPU (/dev/dri) Passthrough**: If an Intel integrated GPU is detected on the QNAP host, the QPKG automatically passes `/dev/dri` to the container to enable hardware transcoding (QSV / VA-API) out-of-the-box.
 * **Automatic NVIDIA GPU Passthrough**: If an NVIDIA GPU is installed and the `NVIDIA_GPU_DRV` driver package is active on the QNAP host, the QPKG automatically maps `/dev/nvidia*` nodes and the driver library path inside the container, enabling NVIDIA NVENC/NVDEC hardware transcoding.
+* **Verified Models**: Tested and verified to work seamlessly on QNAP **TS-464**, **TS-855X**, **TS-673A**, and **TS-h1277AFX**.
 
 ---
 ## What It Needs

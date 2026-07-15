@@ -1,0 +1,60 @@
+name: Build & Release QPKG
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install QDK
+        run: |
+          git clone --depth 1 https://github.com/qnap-dev/QDK.git /tmp/QDK
+          cd /tmp/QDK
+          sudo ./InstallToUbuntu.sh install
+          echo "/usr/share/QDK/bin" >> "$GITHUB_PATH"
+
+      - name: Set QPKG version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^QPKG_VER=.*/QPKG_VER=\"${VERSION}\"/" qpkg.cfg
+          grep '^QPKG_VER=' qpkg.cfg
+
+      - name: Build QPKG
+        run: qbuild
+
+      - name: Generate checksums
+        run: |
+          cd build
+          sha256sum *.qpkg > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-qpkg
+          path: |
+            build/*.qpkg
+            build/SHA256SUMS
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/*.qpkg
+            build/SHA256SUMS
+          generate_release_notes: true

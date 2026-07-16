@@ -16,9 +16,9 @@ See [Hardware Selection](/docs/general/administration/hardware-selection) for mo
 
 :::
 
-For [QNAP](https://www.qnap.com/), Jellyfin can be installed either automatically via a community-maintained QPKG package or manually using Container Station (Docker / Docker Compose).
+For [QNAP](https://www.qnap.com/), Jellyfin runs as a container in QNAP's built-in **Container Station**, deployed either with Docker Compose or via a community-maintained QPKG package that automates the setup.
 
-## Method 1: Community-Maintained QPKG (Recommended)
+## Community-Maintained QPKG
 
 A community-maintained QPKG package ([Jellyfin-QPKG](https://github.com/ivanusto/Jellyfin-QPKG)) is available to simplify installation. It automatically configures Container Station to run the official Docker container, mounts your shared folders under `/mnt`, and auto-detects GPU resources for hardware transcoding.
 

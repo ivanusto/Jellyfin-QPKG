@@ -5,6 +5,8 @@ description: Install on QNAP NAS.
 sidebar_position: 3
 ---
 
+import DockerCompose from '../_container-docker-compose.md';
+
 # Installation on QNAP
 
 :::caution Pre-built NAS Devices
@@ -40,20 +42,22 @@ This package has been verified to work on models such as TS-464, TS-855X, TS-673
 
 ---
 
-## Method 2: Manual Installation via Container Station
+## Installation via Container Station (Docker Compose)
 
-If you prefer to install Jellyfin manually, you can use QNAP's built-in **Container Station** with Docker Compose. The standard Docker Compose instructions work on QNAP as-is:
-
-import DockerCompose from '../_container-docker-compose.md';
+QNAP's built-in **Container Station** runs standard Docker Compose, so the general container installation instructions apply directly:
 
 <DockerCompose />
 
 ### QNAP-Specific Notes
 
-- **Container Station version**: The compose file above requires Docker Compose v2, which ships with Container Station 3 (QTS 5.x / QuTS hero h5.x). Ensure Container Station is installed and up to date from the App Center; the Compose v1 bundled with older Container Station 2 cannot parse it.
-- **Using the Container Station UI**: Instead of running `docker compose` over SSH, you can go to **Applications** > **Create** in Container Station, paste the compose file, and click **Create**.
-- **Paths**: Replace the `/path/to/...` placeholders with QNAP shared-folder paths, e.g. `/share/Container/jellyfin/config` and `/share/Container/jellyfin/cache` for config/cache, and your media share (e.g. `/share/Multimedia`) for media. Create the config and cache folders first, e.g. in File Station.
-- **User**: Folders created inside a QNAP shared folder are world-writable by default, so Jellyfin runs correctly both with the default root user and with a custom `user: uid:gid`. If unsure, simply omit the `user:` line.
+- **Requirements**: Container Station 3 or later (QTS / QuTS hero 5.x+) is required, as it ships Compose v2. The compose file above has no `version:` key, which the older Compose bundled with Container Station 2 does not accept.
+- **Where to paste the compose file**: In Container Station, go to **Applications** > **Create**, paste the compose content, and deploy. Alternatively, deploy via SSH with `docker compose up -d` from the project folder.
+- **Path conventions**: Replace the placeholder paths with QNAP shared-folder paths. Pre-create the config and cache folders first, for example:
+  - `/path/to/config` → `/share/Container/jellyfin/config`
+  - `/path/to/cache` → `/share/Container/jellyfin/cache`
+  - `/path/to/media` → `/share/Multimedia` (mounting media read-only is recommended)
+- **`user: uid:gid`**: The optional `user:` line works as-is with default QNAP shared-folder permissions, since folders created inside a shared folder are world-writable by default. If you use advanced folder permissions (Windows ACL), verify that the chosen uid can write to the config and cache folders. Pre-creating the folders (as above) also avoids Docker auto-creating them as root-owned, which would block a non-root uid.
+- **DLNA / auto-discovery**: Jellyfin no longer ships DLNA out of the box. If you install the DLNA plugin, host networking is required — see the [DLNA networking guide](/docs/general/post-install/networking/dlna#general) for the reasoning and configuration.
 
 ---
 

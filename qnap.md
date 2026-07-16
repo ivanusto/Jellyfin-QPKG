@@ -42,30 +42,18 @@ This package has been verified to work on models such as TS-464, TS-855X, TS-673
 
 ## Method 2: Manual Installation via Container Station
 
-If you prefer to install Jellyfin manually, you can use QNAP's built-in **Container Station** with Docker Compose.
+If you prefer to install Jellyfin manually, you can use QNAP's built-in **Container Station** with Docker Compose. The standard Docker Compose instructions work on QNAP as-is:
 
-### Prerequisites
+import DockerCompose from '../_container-docker-compose.md';
 
-- Ensure **Container Station** is installed and running from the App Center.
-- Create folders for configuration and cache, e.g., `/share/Container/jellyfin/config` and `/share/Container/jellyfin/cache`.
+<DockerCompose />
 
-### Configuration
+### QNAP-Specific Notes
 
-Create an application (Compose project) in Container Station with the following `docker-compose.yml`:
-
-```yaml
-version: '3.5'
-services:
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    container_name: jellyfin
-    network_mode: host
-    volumes:
-      - /share/Container/jellyfin/config:/config
-      - /share/Container/jellyfin/cache:/cache
-      - /share/Multimedia:/media:ro # Mount media shares as read-only
-    restart: unless-stopped
-```
+- **Container Station version**: The compose file above requires Docker Compose v2, which ships with Container Station 3 (QTS 5.x / QuTS hero h5.x). Ensure Container Station is installed and up to date from the App Center; the Compose v1 bundled with older Container Station 2 cannot parse it.
+- **Using the Container Station UI**: Instead of running `docker compose` over SSH, you can go to **Applications** > **Create** in Container Station, paste the compose file, and click **Create**.
+- **Paths**: Replace the `/path/to/...` placeholders with QNAP shared-folder paths, e.g. `/share/Container/jellyfin/config` and `/share/Container/jellyfin/cache` for config/cache, and your media share (e.g. `/share/Multimedia`) for media. Create the config and cache folders first, e.g. in File Station.
+- **User**: Folders created inside a QNAP shared folder are world-writable by default, so Jellyfin runs correctly both with the default root user and with a custom `user: uid:gid`. If unsure, simply omit the `user:` line.
 
 ---
 
@@ -89,11 +77,19 @@ If your QNAP NAS has a compatible NVIDIA graphics card installed:
 
 1. Install the **NVIDIA GPU Driver** from the QNAP App Center.
 2. Go to **Control Panel** > **System** > **Hardware** > **Graphics Card** and assign the GPU resource to **Container Station**.
-3. For Compose, map the NVIDIA device nodes and driver libraries:
+3. QTS/QuTS hero does not provide the NVIDIA Container Toolkit, so the device nodes and driver libraries must be mapped manually in the compose file. Find the driver installation path with `/sbin/getcfg NVIDIA_GPU_DRV Install_Path -f /etc/config/qpkg.conf` via SSH, then add:
+
    ```yaml
    devices:
      - /dev/nvidia0:/dev/nvidia0
      - /dev/nvidiactl:/dev/nvidiactl
-     - /dev/nvidia-modes:/dev/nvidia-modes
+     - /dev/nvidia-uvm:/dev/nvidia-uvm
+   volumes:
+     - <NVIDIA_GPU_DRV Install_Path>/usr:/usr/local/nvidia:ro
+   environment:
+     - LD_LIBRARY_PATH=/usr/local/nvidia/lib64
+     - NVIDIA_VISIBLE_DEVICES=all
+     - NVIDIA_DRIVER_CAPABILITIES=all
    ```
+
 4. In Jellyfin web UI, set **Hardware acceleration** to **Nvidia NVENC**.

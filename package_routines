@@ -238,6 +238,10 @@ pkg_install() {
 }
 
 pkg_post_install() {
+    # qbuild keeps the builder's uid (1001 on GitHub runners, the
+    # developer's own on a workstation). On a NAS that uid can belong to a
+    # real user, who could then edit scripts that QTS runs as root.
+    chown -R 0:0 "${SYS_QPKG_DIR}"
     log "Post-installation for ${PACKAGE_NAME}..."
     resolve_qpkg_path
     /sbin/setcfg "$PACKAGE_NAME" depend_on "container-station" -f /etc/config/qpkg.conf

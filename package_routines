@@ -204,7 +204,7 @@ EOF
     if [ -c "/dev/nvidia0" ] && [ -n "$NVIDIA_DRV_PATH" ] && [ -d "$NVIDIA_DRV_PATH" ]; then
         cat >> "$COMPOSE_FILE" <<EOF
     environment:
-      - "LD_LIBRARY_PATH=/usr/local/nvidia/lib64"
+      - "LD_LIBRARY_PATH=/usr/local/nvidia/nvidia"
       - "NVIDIA_VISIBLE_DEVICES=all"
       - "NVIDIA_DRIVER_CAPABILITIES=all"
 EOF

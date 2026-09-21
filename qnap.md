@@ -91,7 +91,7 @@ If your QNAP NAS has a compatible NVIDIA graphics card installed:
    volumes:
      - <NVIDIA_GPU_DRV Install_Path>/usr:/usr/local/nvidia:ro
    environment:
-     - LD_LIBRARY_PATH=/usr/local/nvidia/lib64
+     - LD_LIBRARY_PATH=/usr/local/nvidia/nvidia
      - NVIDIA_VISIBLE_DEVICES=all
      - NVIDIA_DRIVER_CAPABILITIES=all
    ```
